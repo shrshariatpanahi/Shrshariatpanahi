@@ -1,0 +1,184 @@
+[
+  {
+    "id": "harbor-switch-payoff",
+    "carrier_id": "harbor",
+    "type": "switcher_payoff",
+    "title": "Switch to Harbor and we'll pay off your phone (up to $650/line)",
+    "description": "Reimbursed by prepaid card after you port your number and submit your final bill.",
+    "new_customers": true,
+    "existing_customers": false,
+    "eligible_plan_ids": [
+      "harbor-max",
+      "harbor-essentials"
+    ],
+    "valid_until": "2026-12-31",
+    "value_per_line": 650
+  },
+  {
+    "id": "nova-switch-credit",
+    "carrier_id": "nova",
+    "type": "switcher_credit",
+    "title": "$150 per line when you switch to Nova",
+    "description": "Paid as a one-time bill credit within two billing cycles.",
+    "new_customers": true,
+    "existing_customers": false,
+    "eligible_plan_ids": [
+      "nova-unlimited-plus",
+      "nova-unlimited"
+    ],
+    "valid_until": "2026-11-30",
+    "value_per_line": 150,
+    "excluded_port_from": [
+      "pulse"
+    ]
+  },
+  {
+    "id": "nova-unlimited-discount",
+    "carrier_id": "nova",
+    "type": "plan_discount",
+    "title": "$10/line off Nova Unlimited plans for 12 months",
+    "new_customers": true,
+    "existing_customers": false,
+    "eligible_plan_ids": [
+      "nova-unlimited-plus",
+      "nova-unlimited"
+    ],
+    "valid_until": "2027-01-15",
+    "stackable": true,
+    "monthly_discount_per_line": 10,
+    "duration_months": 12
+  },
+  {
+    "id": "summit-loyalty",
+    "carrier_id": "summit",
+    "type": "plan_discount",
+    "title": "Loyalty offer: $5/line off Unlimited Start for 24 months",
+    "new_customers": false,
+    "existing_customers": true,
+    "eligible_plan_ids": [
+      "summit-unlimited-start"
+    ],
+    "valid_until": "2026-12-31",
+    "stackable": true,
+    "monthly_discount_per_line": 5,
+    "duration_months": 24
+  },
+  {
+    "id": "pulse-intro",
+    "carrier_id": "pulse",
+    "type": "plan_discount",
+    "title": "First 3 months of Prepaid Unlimited for $25/mo",
+    "new_customers": true,
+    "existing_customers": false,
+    "eligible_plan_ids": [
+      "pulse-unlimited"
+    ],
+    "valid_until": "2026-12-31",
+    "stackable": true,
+    "monthly_discount_per_line": 20,
+    "duration_months": 3
+  },
+  {
+    "id": "harbor-summer-switch",
+    "carrier_id": "harbor",
+    "type": "switcher_credit",
+    "title": "Summer switch bonus: $300 per line",
+    "new_customers": true,
+    "existing_customers": false,
+    "eligible_plan_ids": [],
+    "valid_until": "2026-08-31",
+    "value_per_line": 300
+  },
+  {
+    "id": "summit-apex16-tradein",
+    "carrier_id": "summit",
+    "type": "device_discount",
+    "title": "Apex Phone 16 on us with an eligible trade-in",
+    "new_customers": true,
+    "existing_customers": true,
+    "eligible_plan_ids": [
+      "summit-unlimited-elite"
+    ],
+    "valid_until": "2027-01-31",
+    "device_model": "Apex Phone 16",
+    "device_discount": 1099,
+    "credit_months": 36,
+    "requires_trade_in": true,
+    "trade_in_models": [
+      "Apex Phone 13",
+      "Apex Phone 14",
+      "Apex Phone 15",
+      "Orion S23",
+      "Orion S24"
+    ]
+  },
+  {
+    "id": "harbor-orion-s26-switch",
+    "carrier_id": "harbor",
+    "type": "device_discount",
+    "title": "$500 off Orion S26 when you switch",
+    "new_customers": true,
+    "existing_customers": false,
+    "eligible_plan_ids": [
+      "harbor-max",
+      "harbor-essentials"
+    ],
+    "valid_until": "2026-12-31",
+    "device_model": "Orion S26",
+    "device_discount": 500,
+    "credit_months": 24
+  },
+  {
+    "id": "harbor-apex16-upgrade",
+    "carrier_id": "harbor",
+    "type": "device_discount",
+    "title": "Upgrade to Apex Phone 16: $400 off with trade-in",
+    "new_customers": false,
+    "existing_customers": true,
+    "eligible_plan_ids": [
+      "harbor-max"
+    ],
+    "valid_until": "2026-12-31",
+    "device_model": "Apex Phone 16",
+    "device_discount": 400,
+    "credit_months": 24,
+    "requires_trade_in": true,
+    "trade_in_models": [
+      "Apex Phone 13",
+      "Apex Phone 14",
+      "Apex Phone 15",
+      "Orion S22",
+      "Orion S23",
+      "Orion S24",
+      "Vela 7",
+      "Vela 8"
+    ]
+  },
+  {
+    "id": "nova-vela9",
+    "carrier_id": "nova",
+    "type": "device_discount",
+    "title": "Vela 9: $300 off for new and existing customers",
+    "new_customers": true,
+    "existing_customers": true,
+    "eligible_plan_ids": [],
+    "valid_until": "2026-12-31",
+    "device_model": "Vela 9",
+    "device_discount": 300,
+    "credit_months": 24
+  },
+  {
+    "id": "pulse-vela9a",
+    "carrier_id": "pulse",
+    "type": "device_discount",
+    "title": "Vela 9a for $199 when you switch",
+    "description": "Instant discount at checkout. Phone must be activated on Pulse Mobile.",
+    "new_customers": true,
+    "existing_customers": false,
+    "eligible_plan_ids": [],
+    "valid_until": "2026-11-30",
+    "device_model": "Vela 9a",
+    "device_discount": 300,
+    "credit_months": 0
+  }
+]

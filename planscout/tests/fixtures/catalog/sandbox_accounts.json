@@ -1,0 +1,101 @@
+[
+  {
+    "id": "family",
+    "name": "Family of four in Ontario, heavy users",
+    "tier": "premium",
+    "autopay": true,
+    "lines": [
+      {
+        "label": "•••0142",
+        "avg_data_gb": 38,
+        "hotspot_gb": 12,
+        "device": {
+          "model": "Apex Phone 14",
+          "financed": true,
+          "monthly_installment": 41.67,
+          "installments_remaining": 4,
+          "unlocked": false
+        }
+      },
+      {
+        "label": "•••0187",
+        "avg_data_gb": 22,
+        "device": {
+          "model": "Orion S24",
+          "financed": true,
+          "monthly_installment": 33.33,
+          "installments_remaining": 14,
+          "monthly_promo_credit": 20.83,
+          "unlocked": false
+        }
+      },
+      {
+        "label": "•••0110",
+        "avg_data_gb": 4.5,
+        "device": {
+          "model": "Vela 7",
+          "financed": false,
+          "unlocked": true
+        }
+      },
+      {
+        "label": "•••0175",
+        "avg_data_gb": 2.1,
+        "device": {
+          "model": "Apex Phone 13",
+          "financed": false,
+          "unlocked": true
+        }
+      }
+    ],
+    "province": "ON"
+  },
+  {
+    "id": "light",
+    "name": "Single line in Quebec, light user",
+    "tier": "premium",
+    "autopay": false,
+    "lines": [
+      {
+        "label": "•••3391",
+        "avg_data_gb": 3.2,
+        "device": {
+          "model": "Vela 8",
+          "financed": false,
+          "unlocked": true
+        }
+      }
+    ],
+    "province": "QC"
+  },
+  {
+    "id": "couple",
+    "name": "Couple in BC, moderate usage",
+    "tier": "mid",
+    "autopay": true,
+    "lines": [
+      {
+        "label": "•••7720",
+        "avg_data_gb": 12,
+        "hotspot_gb": 2,
+        "device": {
+          "model": "Apex Phone 15",
+          "financed": true,
+          "monthly_installment": 37.5,
+          "installments_remaining": 18,
+          "unlocked": false
+        }
+      },
+      {
+        "label": "•••7754",
+        "avg_data_gb": 7.5,
+        "device": {
+          "model": "Orion S23",
+          "financed": false,
+          "unlocked": true
+        }
+      }
+    ],
+    "province": "BC"
+  }
+]
