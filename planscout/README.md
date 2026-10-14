@@ -74,16 +74,35 @@ API docs are at http://127.0.0.1:8000/api/docs.
 
 Run the tests with `pytest`.
 
+## Get a public link (free, on Render)
+
+The repo includes a [Render Blueprint](../render.yaml), so anyone can reach the app at a public
+`https://….onrender.com` link:
+
+1. Sign up at [render.com](https://render.com) with your GitHub account (no credit card needed for the free plan).
+2. In the Render dashboard choose **New > Blueprint**, connect this GitHub repo, pick the branch that has
+   PlanScout on it, and click **Deploy Blueprint**.
+3. After the first build (a few minutes), the service page shows the link, e.g. `https://planscout.onrender.com`
+   (Render adds a suffix if that name is taken).
+
+Every push to that branch redeploys automatically. Render generates the session and encryption secrets.
+
+Free-plan limits to know: the app goes to sleep after 15 minutes without visitors and takes about a minute to
+wake up, and the free plan has no persistent disk, so **the database (accounts and connections) is wiped on
+every restart or redeploy**. The app tells visitors this (`PLANSCOUT_EPHEMERAL`). For a lasting deployment,
+attach a paid persistent disk and point `PLANSCOUT_DB_PATH` at it, or move storage to Postgres.
+
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PLANSCOUT_SECRET_KEY` | random per start | Signs session cookies. **Set in production.** |
-| `PLANSCOUT_ENCRYPTION_KEY` | random per start | Fernet key that encrypts carrier tokens. Generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. **Set in production.** |
+| `PLANSCOUT_ENCRYPTION_KEY` | random per start | Encrypts carrier tokens at rest: a Fernet key (`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) or any random secret of 32+ characters. **Set in production.** |
 | `PLANSCOUT_DB_PATH` | `planscout.db` | SQLite database file. |
 | `PLANSCOUT_SANDBOX` | `true` | Enables the demo carrier sign-in. Turn off in production. |
 | `PLANSCOUT_HTTPS_ONLY` | `false` | Secure-only cookies. Turn on behind HTTPS. |
-| `PLANSCOUT_BASE_URL` | from request | Public URL used to build the OAuth redirect URI. |
+| `PLANSCOUT_BASE_URL` | from request | Public URL used to build the OAuth redirect URI. Behind a proxy, run uvicorn with `--proxy-headers` instead (as `render.yaml` does). |
+| `PLANSCOUT_EPHEMERAL` | `false` | Tells visitors that accounts are deleted on restart (hosts without persistent disk). |
 | `PLANSCOUT_OAUTH_<CARRIER>_CLIENT_ID`, `_CLIENT_SECRET`, `_AUTHORIZE_URL`, `_TOKEN_URL`, `_ACCOUNT_URL`, optional `_REVOKE_URL` | – | Real OAuth integration for a carrier or data partner, keyed by carrier id with dashes as underscores (e.g. `PLANSCOUT_OAUTH_KOODO_CLIENT_ID`). Takes precedence over the demo for that carrier. |
 
 ## How recommendations are calculated

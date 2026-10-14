@@ -29,6 +29,7 @@ class Settings:
     sandbox_enabled: bool = True
     https_only_cookies: bool = False
     base_url: str | None = None  # e.g. https://planscout.example.com, used to build OAuth redirect URIs
+    ephemeral_storage: bool = False  # hosts like Render's free tier wipe the database on restart; tell users
     data_dir: Path = DATA_DIR
     oauth_configs: dict[str, OAuth2Config] = field(default_factory=dict)
 
@@ -40,6 +41,7 @@ class Settings:
             sandbox_enabled=_flag(env.get("PLANSCOUT_SANDBOX"), True),
             https_only_cookies=_flag(env.get("PLANSCOUT_HTTPS_ONLY"), False),
             base_url=env.get("PLANSCOUT_BASE_URL") or None,
+            ephemeral_storage=_flag(env.get("PLANSCOUT_EPHEMERAL"), False),
             oauth_configs=load_oauth_configs(env),
         )
         if env.get("PLANSCOUT_SECRET_KEY"):

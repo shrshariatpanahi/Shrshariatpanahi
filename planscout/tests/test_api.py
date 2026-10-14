@@ -193,3 +193,38 @@ def test_delete_account_removes_everything(signed_in, tmp_path):
     db = sqlite3.connect(tmp_path / "test.db")
     for table in ("users", "connections", "snapshots", "consent_events"):
         assert db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+
+
+def test_health_check_and_ephemeral_flag(client, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from planscout.config import Settings
+    from planscout.main import create_app
+
+    from .conftest import FIXTURE_CATALOG
+
+    assert client.get("/healthz").json() == {"ok": True}
+    assert client.get("/api/catalog").json()["ephemeral_storage"] is False
+    settings = Settings(db_path=str(tmp_path / "eph.db"), data_dir=FIXTURE_CATALOG, ephemeral_storage=True)
+    with TestClient(create_app(settings)) as demo:
+        assert demo.get("/api/catalog").json()["ephemeral_storage"] is True
+
+
+def test_redirect_uri_uses_forwarded_https_behind_a_proxy(tmp_path):
+    """On hosts like Render, TLS ends at the proxy; with proxy headers trusted, OAuth must use https."""
+    from urllib.parse import parse_qs, urlparse
+
+    from fastapi.testclient import TestClient
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    from planscout.config import Settings
+    from planscout.main import create_app
+
+    from .conftest import FIXTURE_CATALOG
+
+    app = ProxyHeadersMiddleware(create_app(Settings(db_path=str(tmp_path / "p.db"), data_dir=FIXTURE_CATALOG)), "*")
+    with TestClient(app, base_url="http://planscout.example") as client:
+        client.post("/api/auth/signup", json={"email": "p@example.com", "password": "proxy password"},
+                    headers={"X-Forwarded-Proto": "https"})
+        url = client.post("/api/connect/summit/oauth", headers={"X-Forwarded-Proto": "https"}).json()["authorize_url"]
+        assert parse_qs(urlparse(url).query)["redirect_uri"] == ["https://planscout.example/api/connect/oauth/callback"]

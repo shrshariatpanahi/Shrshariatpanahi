@@ -202,6 +202,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {
             "as_of": catalog.as_of,
             "is_sample": catalog.is_sample,
+            "ephemeral_storage": settings.ephemeral_storage,
             "country": catalog.country,
             "currency_symbol": catalog.currency_symbol,
             "scopes": SCOPES,
@@ -383,6 +384,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/", include_in_schema=False)
     def index():
         return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/healthz", include_in_schema=False)
+    def healthz():
+        return {"ok": True}
 
     @app.get("/favicon.ico", include_in_schema=False)
     def favicon():

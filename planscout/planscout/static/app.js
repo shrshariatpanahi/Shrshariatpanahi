@@ -158,6 +158,7 @@ function viewAuth(mode) {
     <div class="auth card">
       <h1>${signup ? "Create your account" : "Welcome back"}</h1>
       <p class="muted">Find a better phone plan and deals using your real usage, without sharing your carrier password.</p>
+      ${ephemeralNote()}
       <div id="auth-error"></div>
       <form id="auth-form" class="stack">
         <div><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required></div>
@@ -189,6 +190,13 @@ function viewAuth(mode) {
 
 // ---------------------------------------------------------------- dashboard
 
+function ephemeralNote() {
+  return state.catalog?.ephemeral_storage
+    ? `<div class="banner">This is a demo server: accounts and everything in them are deleted whenever it restarts
+       (including after 15 minutes without visitors). Please don't enter real account details.</div>`
+    : "";
+}
+
 function sampleBanner() {
   const catalog = state.catalog;
   if (catalog.is_sample) {
@@ -207,7 +215,7 @@ async function viewDashboard(params, seq) {
   const connections = await api("/api/connections");
   if (stale(seq)) return;
   if (!connections.length) {
-    appEl.innerHTML = `${sampleBanner()}
+    appEl.innerHTML = `${ephemeralNote()}${sampleBanner()}
       <div class="card">
         <h1>Are you overpaying for your phone plan?</h1>
         <p class="muted">Connect your carrier account and PlanScout compares your actual usage against every plan

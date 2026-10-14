@@ -1,0 +1,25 @@
+# Render Blueprint: deploys PlanScout as a free web service with a public https://<name>.onrender.com link.
+# In the Render dashboard: New > Blueprint > connect this repo > pick the branch > Deploy. See planscout/README.md.
+services:
+  - type: web
+    name: planscout
+    runtime: python
+    plan: free
+    rootDir: planscout
+    buildCommand: pip install -r requirements.txt
+    # Render's proxy terminates HTTPS; trust its forwarded headers so redirects and cookies use https.
+    startCommand: uvicorn planscout.main:create_app --factory --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: PLANSCOUT_SECRET_KEY
+        generateValue: true
+      - key: PLANSCOUT_ENCRYPTION_KEY
+        generateValue: true
+      - key: PLANSCOUT_HTTPS_ONLY
+        value: "true"
+      # The free tier has no persistent disk: the SQLite database is wiped on every restart. The app tells users.
+      - key: PLANSCOUT_EPHEMERAL
+        value: "true"
