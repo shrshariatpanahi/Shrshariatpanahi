@@ -85,6 +85,8 @@ def test_load_oauth_configs_from_env():
     }
     configs = load_oauth_configs(env)
     assert configs["nova"].client_id == "id" and configs["nova"].revoke_url is None
+    dashed = load_oauth_configs({k.replace("_NOVA_", "_VIRGIN_PLUS_"): v for k, v in env.items()})
+    assert list(dashed) == ["virgin-plus"]
     del env["PLANSCOUT_OAUTH_NOVA_TOKEN_URL"]
     with pytest.raises(ValueError, match="TOKEN_URL"):
         load_oauth_configs(env)

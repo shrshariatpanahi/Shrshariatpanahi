@@ -18,23 +18,60 @@ from ..catalog import Catalog
 MAX_BYTES = 10 * 1024 * 1024
 MAX_PAGES = 40
 
-_AMOUNT = r"\$?\s?(\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})"
+# Bills may be in English ("$1,234.56") or French ("1 234,56 $"), e.g. from Quebec.
+_AMOUNT = (
+    r"(?:\$\s?(?P<en>\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})"
+    r"|(?P<fr>\d{1,3}(?:[   ]\d{3})*,\d{2})\s?\$"
+    r"|(?P<bare>\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2}))"
+)
+_GB = r"(\d+(?:[.,]\d+)?)\s*(?:GB|Go)\b"
 PHONE_RE = re.compile(r"(?<!\d)\(?(\d{3})\)?[\s.-]?(\d{3})[\s.-]?(\d{4})(?!\d)")
-SUPPORT_NUMBER_RE = re.compile(r"customer (?:service|care)|call us|questions\?|1[\s.-]?8\d\d", re.I)
-PLAN_NAME_RE = re.compile(r"\b(?:your\s+|rate\s+)?plan\s*:\s*(?P<name>[^\n]+)", re.I)
-LINE_COUNT_RE = re.compile(r"\((\d{1,2})\s+lines?\)", re.I)
-PLAN_CHARGES_RE = re.compile(r"(?:plan|monthly service|service plan)\s+charges?\b[^\n\d$]*" + _AMOUNT, re.I)
-AUTOPAY_RE = re.compile(r"auto\s?pay\s+(?:discount|savings|credit)[^\n\d$]*-?\s*" + _AMOUNT, re.I)
-TOTAL_RE = re.compile(r"(?:total\s+(?:amount\s+)?due|amount\s+due|total\s+balance)[^\n\d$]*" + _AMOUNT, re.I)
-DATA_RE = re.compile(r"data(?:\s+used|\s+usage)?\s*[:\-]?\s*(\d+(?:\.\d+)?)\s*GB", re.I)
-HOTSPOT_RE = re.compile(r"hotspot(?:\s+used|\s+usage)?\s*[:\-]?\s*(\d+(?:\.\d+)?)\s*GB", re.I)
-INSTALLMENT_RE = re.compile(
-    r"(?:device|phone|equipment)\s+(?:payment|installment|financing)\s*[-–:]?\s*(?P<model>[^\n$]*?)\s*"
-    r"(?:installment|payment|pmt)?\.?\s*(?P<paid>\d{1,2})\s*(?:of|/)\s*(?P<total>\d{1,2})[^\n\d$]*"
-    + _AMOUNT,
+SUPPORT_NUMBER_RE = re.compile(
+    r"customer (?:service|care)|call us|questions\s?\?|service\s+[àa]\s+la\s+client[èe]le|appelez|1[\s.-]?8\d\d", re.I
+)
+PLAN_NAME_RE = re.compile(r"\b(?:your\s+|votre\s+|rate\s+)?(?:plan|forfait)\s*:\s*(?P<name>[^\n]+)", re.I)
+LINE_COUNT_RE = re.compile(r"\((\d{1,2})\s+(?:lines?|lignes?)\)", re.I)
+PLAN_CHARGES_RE = re.compile(
+    r"(?:(?:rate\s+|service\s+|monthly\s+)?plan\s+charges?|monthly\s+service\s+(?:fees|charges)"
+    r"|frais\s+(?:mensuels\s+)?(?:du\s+forfait|de\s+service(?:\s+mensuels)?))\b[^\n\d$]*" + _AMOUNT,
     re.I,
 )
-CREDIT_RE = re.compile(r"(?:promo(?:tional)?|device|trade-?in)\s+credit[^\n\d$]*-\s*" + _AMOUNT, re.I)
+AUTOPAY_RE = re.compile(
+    r"(?:auto\s?pay\s+(?:discount|savings|credit)|pre-?authori[sz]ed\s+payments?\s+(?:discount|credit)"
+    r"|rabais\s+(?:pour\s+)?(?:paiements?\s+pr[ée]autoris[ée]s?|pr[ée]l[èe]vements?\s+automatiques?))"
+    r"[^\n\d$]*-?\s*" + _AMOUNT,
+    re.I,
+)
+TOTAL_RE = re.compile(
+    r"(?:total\s+(?:amount\s+)?due|amount\s+due|total\s+balance|total\s+[àa]\s+payer|montant\s+d[ûu]|solde\s+total)"
+    r"[^\n\d$]*" + _AMOUNT,
+    re.I,
+)
+DATA_RE = re.compile(r"(?:data|donn[ée]es)(?:\s+used|\s+usage|\s+utilis[ée]es)?\s*[:\-]?\s*" + _GB, re.I)
+HOTSPOT_RE = re.compile(
+    r"(?:hotspot|point\s+d['’]acc[èe]s(?:\s+mobile)?|partage\s+de\s+connexion)"
+    r"(?:\s+used|\s+usage|\s+utilis[ée]s?)?\s*[:\-]?\s*" + _GB,
+    re.I,
+)
+INSTALLMENT_RE = re.compile(
+    r"(?:(?:device|phone|equipment)\s+(?:payment|installment|financing)"
+    r"|(?:paiement|versement|financement)\s+(?:de\s+l['’]\s?)?appareil)"
+    r"\s*[-–:]?\s*(?P<model>[^\n$]*?)\s*"
+    r"(?:installment|payment|pmt|versement|paiement)?\.?\s*(?P<paid>\d{1,2})\s*(?:of|de|sur|/)\s*(?P<total>\d{1,2})"
+    r"[^\n\d$]*" + _AMOUNT,
+    re.I,
+)
+CREDIT_RE = re.compile(
+    r"(?:(?:promo(?:tional)?|device|trade-?in)\s+credit|cr[ée]dit\s+(?:promotionnel|de\s+l['’]\s?appareil|d['’]\s?[ée]change))"
+    r"[^\n\d$]*-\s*" + _AMOUNT,
+    re.I,
+)
+# Canadian postal codes: the first letter identifies the province, so we keep only that, never the code itself.
+POSTAL_CODE_RE = re.compile(r"\b([ABCEGHJ-NPRSTVXY])(\d)([ABCEGHJ-NPRSTV-Z])[ -]?\d[ABCEGHJ-NPRSTV-Z]\d\b")
+POSTAL_PROVINCE = {
+    "A": "NL", "B": "NS", "C": "PE", "E": "NB", "G": "QC", "H": "QC", "J": "QC", "K": "ON", "L": "ON",
+    "M": "ON", "N": "ON", "P": "ON", "R": "MB", "S": "SK", "T": "AB", "V": "BC", "Y": "YT",
+}
 
 
 class BillParseError(ValueError):
@@ -48,8 +85,24 @@ class BillParseResult:
     found: list[str] = field(default_factory=list)
 
 
-def _amount(text: str) -> float:
-    return float(text.replace(",", ""))
+def _amount(match: re.Match) -> float:
+    if match.group("fr"):
+        return float(re.sub(r"[ \u00a0\u202f]", "", match.group("fr")).replace(",", "."))
+    return float((match.group("en") or match.group("bare")).replace(",", ""))
+
+
+def _gb(text: str) -> float:
+    return float(text.replace(",", "."))
+
+
+def province_from_postal_code(text: str) -> str | None:
+    match = POSTAL_CODE_RE.search(text)
+    if not match:
+        return None
+    letter, digit, second = match.groups()
+    if letter == "X":  # Nunavut is X0A, X0B and X0C; the rest of X is the Northwest Territories
+        return "NU" if digit == "0" and second in "ABC" else "NT"
+    return POSTAL_PROVINCE[letter]
 
 
 def extract_text(filename: str, data: bytes) -> str:
@@ -97,20 +150,20 @@ def _parse_line(last4: str, block: str) -> dict | None:
         return None  # a phone number that isn't a service line (e.g. a contact number)
     line: dict = {
         "label": f"•••{last4}",
-        "avg_data_gb": float(data.group(1)) if data else 0.0,
-        "hotspot_gb": float(hotspot.group(1)) if hotspot else 0.0,
+        "avg_data_gb": _gb(data.group(1)) if data else 0.0,
+        "hotspot_gb": _gb(hotspot.group(1)) if hotspot else 0.0,
         "device": None,
     }
     if installment:
         paid, total = int(installment.group("paid")), int(installment.group("total"))
         credit = CREDIT_RE.search(block)
-        monthly = _amount(installment.group(4))
+        monthly = _amount(installment)
         line["device"] = {
             "model": _clean_model(installment.group("model")),
             "financed": True,
             "monthly_installment": monthly,
             "installments_remaining": max(total - paid, 0),
-            "monthly_promo_credit": min(_amount(credit.group(1)), monthly) if credit else 0.0,
+            "monthly_promo_credit": min(_amount(credit), monthly) if credit else 0.0,
             "unlocked": None,
         }
     return line
@@ -132,8 +185,14 @@ def parse_bill_text(text: str, carrier_id: str, catalog: Catalog) -> BillParseRe
         result.warnings.append("Couldn't find your plan name")
 
     autopay = AUTOPAY_RE.search(text)
-    autopay_discount = _amount(autopay.group(1)) if autopay else 0.0
+    autopay_discount = _amount(autopay) if autopay else 0.0
     draft["autopay"] = autopay is not None
+
+    draft["province"] = province_from_postal_code(text)
+    if draft["province"]:
+        result.found.append("province (from your postal code)")
+    else:
+        result.warnings.append("Couldn't tell which province you're in; please choose it")
 
     lines = [line for last4, block in _split_line_blocks(text) if (line := _parse_line(last4, block))]
     if lines:
@@ -156,7 +215,7 @@ def parse_bill_text(text: str, carrier_id: str, catalog: Catalog) -> BillParseRe
     plan_charges = PLAN_CHARGES_RE.search(text)
     total = TOTAL_RE.search(text)
     if plan_charges:
-        draft["monthly_plan_cost"] = round(_amount(plan_charges.group(1)) - autopay_discount, 2)
+        draft["monthly_plan_cost"] = round(_amount(plan_charges) - autopay_discount, 2)
         result.found.append("plan charges")
     elif total:
         devices = sum(
@@ -164,7 +223,7 @@ def parse_bill_text(text: str, carrier_id: str, catalog: Catalog) -> BillParseRe
             for line in lines
             if line["device"]
         )
-        draft["monthly_plan_cost"] = round(max(_amount(total.group(1)) - devices, 0), 2)
+        draft["monthly_plan_cost"] = round(max(_amount(total) - devices, 0), 2)
         result.warnings.append("Plan cost was estimated from the total due and may include taxes and fees")
     else:
         draft["monthly_plan_cost"] = 0.0

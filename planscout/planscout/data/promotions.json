@@ -7,7 +7,10 @@
     "description": "Reimbursed by prepaid card after you port your number and submit your final bill.",
     "new_customers": true,
     "existing_customers": false,
-    "eligible_plan_ids": ["harbor-max", "harbor-essentials"],
+    "eligible_plan_ids": [
+      "harbor-max",
+      "harbor-essentials"
+    ],
     "valid_until": "2026-12-31",
     "value_per_line": 650
   },
@@ -19,9 +22,15 @@
     "description": "Paid as a one-time bill credit within two billing cycles.",
     "new_customers": true,
     "existing_customers": false,
-    "eligible_plan_ids": ["nova-unlimited-plus", "nova-unlimited"],
+    "eligible_plan_ids": [
+      "nova-unlimited-plus",
+      "nova-unlimited"
+    ],
     "valid_until": "2026-11-30",
-    "value_per_line": 150
+    "value_per_line": 150,
+    "excluded_port_from": [
+      "pulse"
+    ]
   },
   {
     "id": "nova-unlimited-discount",
@@ -30,7 +39,10 @@
     "title": "$10/line off Nova Unlimited plans for 12 months",
     "new_customers": true,
     "existing_customers": false,
-    "eligible_plan_ids": ["nova-unlimited-plus", "nova-unlimited"],
+    "eligible_plan_ids": [
+      "nova-unlimited-plus",
+      "nova-unlimited"
+    ],
     "valid_until": "2027-01-15",
     "stackable": true,
     "monthly_discount_per_line": 10,
@@ -43,7 +55,9 @@
     "title": "Loyalty offer: $5/line off Unlimited Start for 24 months",
     "new_customers": false,
     "existing_customers": true,
-    "eligible_plan_ids": ["summit-unlimited-start"],
+    "eligible_plan_ids": [
+      "summit-unlimited-start"
+    ],
     "valid_until": "2026-12-31",
     "stackable": true,
     "monthly_discount_per_line": 5,
@@ -56,7 +70,9 @@
     "title": "First 3 months of Prepaid Unlimited for $25/mo",
     "new_customers": true,
     "existing_customers": false,
-    "eligible_plan_ids": ["pulse-unlimited"],
+    "eligible_plan_ids": [
+      "pulse-unlimited"
+    ],
     "valid_until": "2026-12-31",
     "stackable": true,
     "monthly_discount_per_line": 20,
@@ -80,13 +96,21 @@
     "title": "Apex Phone 16 on us with an eligible trade-in",
     "new_customers": true,
     "existing_customers": true,
-    "eligible_plan_ids": ["summit-unlimited-elite"],
+    "eligible_plan_ids": [
+      "summit-unlimited-elite"
+    ],
     "valid_until": "2027-01-31",
     "device_model": "Apex Phone 16",
     "device_discount": 1099,
     "credit_months": 36,
     "requires_trade_in": true,
-    "trade_in_models": ["Apex Phone 13", "Apex Phone 14", "Apex Phone 15", "Orion S23", "Orion S24"]
+    "trade_in_models": [
+      "Apex Phone 13",
+      "Apex Phone 14",
+      "Apex Phone 15",
+      "Orion S23",
+      "Orion S24"
+    ]
   },
   {
     "id": "harbor-orion-s26-switch",
@@ -95,7 +119,10 @@
     "title": "$500 off Orion S26 when you switch",
     "new_customers": true,
     "existing_customers": false,
-    "eligible_plan_ids": ["harbor-max", "harbor-essentials"],
+    "eligible_plan_ids": [
+      "harbor-max",
+      "harbor-essentials"
+    ],
     "valid_until": "2026-12-31",
     "device_model": "Orion S26",
     "device_discount": 500,
@@ -108,13 +135,24 @@
     "title": "Upgrade to Apex Phone 16: $400 off with trade-in",
     "new_customers": false,
     "existing_customers": true,
-    "eligible_plan_ids": ["harbor-max"],
+    "eligible_plan_ids": [
+      "harbor-max"
+    ],
     "valid_until": "2026-12-31",
     "device_model": "Apex Phone 16",
     "device_discount": 400,
     "credit_months": 24,
     "requires_trade_in": true,
-    "trade_in_models": ["Apex Phone 13", "Apex Phone 14", "Apex Phone 15", "Orion S22", "Orion S23", "Orion S24", "Vela 7", "Vela 8"]
+    "trade_in_models": [
+      "Apex Phone 13",
+      "Apex Phone 14",
+      "Apex Phone 15",
+      "Orion S22",
+      "Orion S23",
+      "Orion S24",
+      "Vela 7",
+      "Vela 8"
+    ]
   },
   {
     "id": "nova-vela9",

@@ -1,7 +1,7 @@
 # PlanScout
 
-Customers connect their phone carrier account, PlanScout reads their plan, usage and devices
-(with their permission), and recommends:
+PlanScout is set up for **Canadian** carriers. Customers connect their phone carrier account,
+PlanScout reads their plan, usage and devices (with their permission), and recommends:
 
 - **Cheaper plans** that still fit their usage, at their current carrier or another one, priced
   honestly, including device payoffs, activation fees, forfeited credits and switching promotions.
@@ -9,8 +9,36 @@ Customers connect their phone carrier account, PlanScout reads their plan, usage
   carriers (switcher deals), including the cost of any pricier plan the deal requires.
 - **Quick wins** such as turning on AutoPay, and which phones are paid off and free to upgrade.
 
-> The bundled catalog (carriers, plans, prices, phones) is **fictional sample data** so the app
-> runs out of the box. Replace it with a real offer feed before showing it to customers.
+## Canadian carriers and data
+
+<!-- CARRIER_TABLE -->
+
+Plans, prices, connection fees and promotions in [`planscout/data/`](planscout/data/) were researched on
+**<!-- AS_OF -->** from carrier websites and Canadian telecom news (iPhone in Canada, MobileSyrup,
+RedFlagDeals, PlanHub and others), then independently re-checked. Every plan and promotion lists the
+URLs it came from (`source_urls`). Items that couldn't be corroborated were left out rather than guessed.
+
+**Canadian plans change monthly.** The app shows customers the date prices were checked and warns them
+once the data is more than 45 days old. To update, edit the JSON files (or re-run the research), bump
+`as_of` in `catalog_meta.json`, and run `pytest`: `tests/test_catalog_canada.py` checks that every carrier,
+plan and promotion is complete, sourced, and not expired.
+
+What's specific to Canada:
+
+- **Provinces.** Each brand lists where it sells service (e.g. SaskTel in Saskatchewan, Eastlink in
+  Atlantic Canada, Vidéotron in Quebec and beyond). Customers pick their province, or it's detected from
+  the postal code on their bill (only the province is kept), and only carriers that serve them are compared.
+- **Sales tax.** Comparisons are before tax (the rate is the same whichever plan you pick), but the dashboard
+  shows tax-inclusive estimates using the GST/HST/PST/QST rate for the customer's province.
+- **Sister brands.** Rogers/Fido/chatr, Bell/Virgin Plus/Lucky Mobile, TELUS/Koodo/Public Mobile and
+  Freedom/Vidéotron/Fizz share owners. Switcher offers that exclude ports from sister brands are respected,
+  and customers are warned when a move is between sister brands.
+- **CRTC Wireless Code.** Leaving a carrier makes the remaining device balance due (included in every
+  comparison), and carriers must unlock phones for free, so locked phones are flagged, not treated as blockers.
+- **French bills.** Bill upload reads French bills (e.g. "Total à payer", "Forfait", "Données utilisées : 3,5 Go",
+  "45,00 $") as well as English ones.
+- **Demo sign-in.** No Canadian carrier offers third-party account access today, so "sign in with your carrier"
+  runs against a clearly labelled demo that simulates the chosen carrier with sample customers.
 
 ## How "log in to your carrier" works
 
@@ -39,9 +67,10 @@ pip install -r requirements-dev.txt
 uvicorn planscout.main:create_app --factory --reload
 ```
 
-Open http://127.0.0.1:8000, create an account, choose a carrier, and pick **Sign in with ...**.
-The sandbox sign-in page offers three demo customers (a heavy-use family, a light single-line
-user, a couple). API docs are at http://127.0.0.1:8000/api/docs.
+Open http://127.0.0.1:8000, create an account, pick your province and carrier, then choose
+**Start the demo**. The demo sign-in offers three sample customers (a heavy-use family in Ontario,
+a light single-line user in Quebec, a couple in BC). Or upload a bill, or type your details in.
+API docs are at http://127.0.0.1:8000/api/docs.
 
 Run the tests with `pytest`.
 
@@ -55,7 +84,7 @@ Run the tests with `pytest`.
 | `PLANSCOUT_SANDBOX` | `true` | Enables the demo carrier sign-in. Turn off in production. |
 | `PLANSCOUT_HTTPS_ONLY` | `false` | Secure-only cookies. Turn on behind HTTPS. |
 | `PLANSCOUT_BASE_URL` | from request | Public URL used to build the OAuth redirect URI. |
-| `PLANSCOUT_OAUTH_<CARRIER>_CLIENT_ID`, `_CLIENT_SECRET`, `_AUTHORIZE_URL`, `_TOKEN_URL`, `_ACCOUNT_URL`, optional `_REVOKE_URL` | – | Real OAuth integration for a carrier or data partner (e.g. `PLANSCOUT_OAUTH_NOVA_CLIENT_ID`). Takes precedence over the sandbox for that carrier. |
+| `PLANSCOUT_OAUTH_<CARRIER>_CLIENT_ID`, `_CLIENT_SECRET`, `_AUTHORIZE_URL`, `_TOKEN_URL`, `_ACCOUNT_URL`, optional `_REVOKE_URL` | – | Real OAuth integration for a carrier or data partner, keyed by carrier id with dashes as underscores (e.g. `PLANSCOUT_OAUTH_KOODO_CLIENT_ID`). Takes precedence over the demo for that carrier. |
 
 ## How recommendations are calculated
 
@@ -69,14 +98,19 @@ owning their current phones.
 - **Switch carrier:** new plan price × N + activation fees + the full remaining device balance
   (it becomes due, and remaining credits are forfeited), minus switcher promotions (payoff
   reimbursements are capped at what is actually owed).
-- A plan only qualifies if it covers each line's average data and hotspot use with 20% headroom.
-- Promotions: all *stackable* offers apply plus the single best non-stackable one; expired offers
-  and offers for the wrong customer type (new vs existing) are ignored.
-- Device deals add the extra plan cost when a "free phone" requires a pricier plan for the
-  length of its bill credits, and trade-in deals only show when a phone on the account qualifies.
+- A plan only qualifies if its full-speed data covers each line's average use (hotspot included) with
+  20% headroom, and the carrier sells service in the customer's province.
+- Promotions: all *stackable* offers apply plus the single best non-stackable one; expired offers,
+  offers for the wrong customer type (new vs existing) and offers that exclude the customer's current
+  brand are ignored.
+- Device deals add the extra plan cost when a "free phone" requires a pricier plan for the length of
+  its bill credits. Trade-in deals that list eligible models only show when a phone on the account
+  qualifies; otherwise the carrier's trade-in terms are shown with the deal.
 
-Prices exclude taxes; alternatives assume AutoPay. The logic is in
-[`planscout/recommender.py`](planscout/recommender.py) and covered by `tests/test_recommender.py`.
+Prices exclude sales tax; alternatives assume AutoPay. The logic is in
+[`planscout/recommender.py`](planscout/recommender.py). Engine tests (`tests/test_recommender.py`,
+`tests/test_canada.py`) run against a frozen fictional catalog in `tests/fixtures/catalog/`, so they
+don't break when real prices change.
 
 ## Project layout
 
@@ -92,25 +126,33 @@ planscout/
     base.py            Provider interface + read-only scopes
     oauth2.py          Generic OAuth 2.0 + PKCE client for real carriers/partners
     sandbox.py         Pretend carrier sign-in page + account API for demos
-    bill_parser.py     PDF/text bill to draft account
-  data/                Sample catalog: carriers, plans, promotions, devices, demo customers
+    bill_parser.py     PDF/text bill (English or French) to draft account
+  data/                Canadian catalog: carriers, plans, promotions, devices, tax; demo customers
   static/              Single-page web UI (no build step)
 tests/
+  fixtures/catalog/    Frozen fictional catalog for engine tests
 ```
 
 ## Going live: what's still needed
 
-1. **Real account data.** Carriers generally don't offer a public API for customer account
-   data. Options are a partner agreement with each carrier, or a licensed data aggregator that
-   already has consented access. Either way, plug it in with the `PLANSCOUT_OAUTH_*` variables and,
-   if their payload differs from `AccountSnapshot`, override `OAuth2Provider.map_account`. Until
-   then, bill upload covers every carrier.
-2. **Real plans and promotions.** Replace `planscout/data/*.json` with a maintained feed:
-   carrier partner or affiliate offer feeds, or a team curating published offers. Set
-   `is_sample` to `false` in `catalog_meta.json`. Promotions change weekly, so automate this.
-3. **Privacy and legal review.** Carrier account and usage data is regulated (e.g. CPNI rules in
-   the US, PIPEDA in Canada, state privacy laws). Get counsel to review consent wording, retention,
-   and disclosure, and disclose any affiliate/referral revenue next to recommendations.
+1. **Real account data.** Canadian carriers don't offer a public API for customer account data.
+   Options are a partner agreement with each carrier, or a licensed data aggregator that already has
+   consented access. Either way, plug it in with the `PLANSCOUT_OAUTH_*` variables and, if their payload
+   differs from `AccountSnapshot`, override `OAuth2Provider.map_account`. Until then, bill upload and
+   manual entry cover every carrier.
+2. **Keeping offers current.** The researched catalog is a snapshot. Before launch, set up a regular
+   refresh (carrier partner or affiliate offer feeds, or a person curating published offers weekly) and
+   spot-check the numbers against carrier sites.
+3. **Canadian privacy and consumer law.** Have a Canadian lawyer review before launch:
+   - **PIPEDA** (and Alberta/BC PIPA): meaningful consent, purpose limits, retention, breach reporting.
+   - **Quebec Law 25**: stricter consent, a named privacy officer, privacy impact assessments, and rules on
+     data leaving Quebec.
+   - **Charter of the French Language (Bill 96)**: Quebec customers must be able to use the service in
+     French; the UI is English-only today.
+   - **Competition Act**: prices shown must not be misleading, including "drip pricing" (mandatory fees must
+     be included; PlanScout includes connection fees in comparisons), and affiliate/referral relationships
+     must be disclosed.
+   - **CASL** if you email customers about new deals.
 4. **Production hardening.** HTTPS, set the secret and encryption keys (ideally from a secrets
    manager), turn off the sandbox, add login rate limiting and email verification, move from SQLite
    to Postgres for multiple instances, and add monitoring.

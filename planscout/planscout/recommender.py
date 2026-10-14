@@ -111,11 +111,17 @@ def _price_option(
 
     reasons = [f"{_money(monthly)}/mo for {lines} line{'s' if lines > 1 else ''} vs your {_money(current.monthly_plan)}/mo"]
     if plan.is_unlimited:
-        reasons.append("Unlimited data")
+        reasons.append("Unlimited data at full speed")
     else:
         heaviest = max(line.avg_data_gb for line in snapshot.lines)
-        reasons.append(f"{plan.data_gb:g} GB per line covers your heaviest line (~{heaviest:g} GB/mo)")
+        then = f", then {plan.after_data}" if plan.after_data else ""
+        reasons.append(f"{plan.data_gb:g} GB per line at full speed{then}; your heaviest line uses ~{heaviest:g} GB/mo")
+    if plan.coverage:
+        reasons.append(f"Coverage: {plan.coverage}")
     caveats = list(fit_caveats)
+    if plan.offer_note:
+        ends = f" (ends {plan.offer_ends.isoformat()})" if plan.offer_ends else ""
+        caveats.append(f"Limited-time pricing: {plan.offer_note}{ends}")
 
     current_plan = catalog.plan(snapshot.plan_id)
     if current_plan:
@@ -128,7 +134,7 @@ def _price_option(
         for p in catalog.active_promotions(today)
         if p.carrier_id == plan.carrier_id
         and p.type != "device_discount"
-        and p.available_to(existing_customer=same_carrier)
+        and p.available_to(existing_customer=same_carrier, current_carrier_id=snapshot.carrier_id)
         and p.applies_to_plan(plan.id)
     ]
     chosen = _choose_promotions(promos, snapshot, horizon_months)
@@ -144,7 +150,7 @@ def _price_option(
         one_time = activation + current.device_payoff_balance
         device_cost = 0.0
         if activation:
-            caveats.append(f"Includes {_money(activation)} in activation fees")
+            caveats.append(f"Includes {_money(activation)} in connection/activation fees")
         if current.device_payoff_balance > 0:
             caveats.append(
                 f"Leaving {current_carrier.name} makes your remaining device balance of "
@@ -153,10 +159,20 @@ def _price_option(
         if current.remaining_device_credits > 0:
             caveats.append(f"You'd give up {_money(current.remaining_device_credits)} in remaining device credits")
         if any(line.device and line.device.unlocked is False for line in snapshot.lines):
-            caveats.append(f"Some phones are locked; ask {current_carrier.name} to unlock them before you switch")
+            if catalog.free_unlocking:
+                caveats.append(f"Some phones are locked; {current_carrier.name} must unlock them for free if you ask")
+            else:
+                caveats.append(f"Some phones are locked; ask {current_carrier.name} to unlock them before you switch")
+        if carrier.parent and carrier.parent == current_carrier.parent:
+            caveats.append(
+                f"{carrier.name} and {current_carrier.name} are both owned by {carrier.parent}; "
+                "switching offers often exclude moves between sister brands"
+            )
         caveats.append(f"Check that your phones work on {carrier.name}'s network and coverage where you live")
         if carrier.type == "prepaid":
-            caveats.append("Prepaid: you pay upfront each month and phones can't be financed")
+            caveats.append("Prepaid: you pay for each month upfront")
+        if not carrier.offers_device_financing:
+            caveats.append(f"{carrier.name} doesn't finance phones; new phones are bought outright")
 
     horizon_total = round(monthly * horizon_months + one_time + device_cost - promo_savings, 2)
     savings = round(current.horizon_total - horizon_total, 2)
@@ -187,14 +203,19 @@ def _device_deals(snapshot: AccountSnapshot, catalog: Catalog, today: date) -> l
         if promo.type != "device_discount" or not promo.device_model:
             continue
         same_carrier = promo.carrier_id == snapshot.carrier_id
-        if not promo.available_to(existing_customer=same_carrier):
+        if not promo.available_to(existing_customer=same_carrier, current_carrier_id=snapshot.carrier_id):
             continue
         device = catalog.devices[promo.device_model]
         carrier = catalog.carriers[promo.carrier_id]
+        if not carrier.serves(snapshot.province):
+            continue
+        retail_price = promo.device_retail_price or device.retail_price
         notes: list[str] = []
 
         trade_in = None
-        if promo.requires_trade_in:
+        if promo.requires_trade_in and not promo.trade_in_models:
+            notes.append("Requires trading in an eligible phone (see the carrier's terms)")
+        elif promo.requires_trade_in:
             candidates = [
                 line for line in snapshot.lines if line.device and line.device.model in promo.trade_in_models
             ]
@@ -215,7 +236,11 @@ def _device_deals(snapshot: AccountSnapshot, catalog: Catalog, today: date) -> l
             required_id, required_name = snapshot.plan_id, snapshot.plan_name or "your current plan"
             notes.append("Works with your current plan")
         else:
-            eligible = [p for p in catalog.plans_for(promo.carrier_id) if promo.applies_to_plan(p.id)]
+            eligible = [
+                p
+                for p in catalog.plans_for(promo.carrier_id)
+                if promo.applies_to_plan(p.id) and p.serves(snapshot.province)
+            ]
             fitting = [p for p in eligible if plan_fit(p, snapshot.lines)[0]]
             pool = fitting or eligible
             if not pool:
@@ -234,6 +259,8 @@ def _device_deals(snapshot: AccountSnapshot, catalog: Catalog, today: date) -> l
             else:
                 notes.append(f"Requires the {required.name} plan")
 
+        if promo.description:
+            notes.append(promo.description)
         if promo.credit_months:
             notes.append(
                 f"Discount is paid as bill credits over {promo.credit_months} months; leaving early forfeits the rest"
@@ -243,8 +270,8 @@ def _device_deals(snapshot: AccountSnapshot, catalog: Catalog, today: date) -> l
         if not same_carrier:
             notes.append(f"Requires moving your number to {carrier.name}")
 
-        promo_value = min(promo.device_discount, device.retail_price)
-        effective = round(device.retail_price - promo_value, 2)
+        promo_value = min(promo.device_discount, retail_price)
+        effective = round(retail_price - promo_value, 2)
         deals.append(
             DeviceDeal(
                 promo_id=promo.id,
@@ -252,7 +279,7 @@ def _device_deals(snapshot: AccountSnapshot, catalog: Catalog, today: date) -> l
                 carrier_name=carrier.name,
                 title=promo.title,
                 device_model=device.model,
-                retail_price=device.retail_price,
+                retail_price=retail_price,
                 promo_value=promo_value,
                 effective_device_price=effective,
                 credit_months=promo.credit_months,
@@ -334,6 +361,8 @@ def recommend(
     for plan in catalog.plans:
         if plan.id == snapshot.plan_id:
             continue
+        if not (catalog.carriers[plan.carrier_id].serves(snapshot.province) and plan.serves(snapshot.province)):
+            continue
         fits, fit_caveats = plan_fit(plan, snapshot.lines)
         if fits:
             options.append(_price_option(plan, snapshot, catalog, current, horizon_months, today, fit_caveats))
@@ -356,19 +385,25 @@ def recommend(
             f"({_money(best.savings)} over {horizon_months} months, after switching costs and promotions)."
         )
 
+    tax_rate = catalog.sales_tax.get(snapshot.province) if snapshot.province else None
     assumptions = [
         f"Compares {horizon_months} months of service plus paying off the phones you have now",
-        "Prices exclude taxes and regulatory fees",
+        f"Prices exclude sales tax ({tax_rate:g}% in {snapshot.province})" if tax_rate is not None
+        else "Prices exclude taxes and regulatory fees",
         "Other plans are priced with AutoPay on",
         f"Plans must cover each line's average data use plus {round((DATA_HEADROOM - 1) * 100)}% headroom",
         "Promotions are subject to the carrier's terms; confirm them before you switch",
     ]
     if catalog.is_sample:
         assumptions.insert(0, "SAMPLE CATALOG: carriers, plans and prices are illustrative, not real offers")
+    if not snapshot.province and any(c.provinces for c in catalog.carriers.values()):
+        assumptions.append("Add your province to see only carriers that serve where you live")
 
     return RecommendationReport(
         carrier_id=snapshot.carrier_id,
         carrier_name=catalog.carriers[snapshot.carrier_id].name,
+        province=snapshot.province,
+        sales_tax_rate=tax_rate,
         horizon_months=horizon_months,
         catalog_as_of=catalog.as_of,
         catalog_is_sample=catalog.is_sample,

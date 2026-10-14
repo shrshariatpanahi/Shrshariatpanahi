@@ -1,4 +1,5 @@
 from datetime import date
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,18 +10,20 @@ from planscout.main import create_app
 from planscout.models import AccountSnapshot
 
 TODAY = date(2026, 10, 14)
+# Engine and API tests run against a frozen, fictional catalog so they don't break when real prices change.
+FIXTURE_CATALOG = Path(__file__).parent / "fixtures" / "catalog"
 
 
 @pytest.fixture(scope="session")
 def catalog() -> Catalog:
-    return Catalog.load()
+    return Catalog.load(FIXTURE_CATALOG)
 
 
 @pytest.fixture
 def make_snapshot():
-    catalog = Catalog.load()
+    catalog = Catalog.load(FIXTURE_CATALOG)
 
-    def make(carrier_id="summit", plan_id="summit-unlimited-elite", cost=None, autopay=True, lines=None):
+    def make(carrier_id="summit", plan_id="summit-unlimited-elite", cost=None, autopay=True, lines=None, province=None):
         lines = lines or [{"label": "Line 1", "avg_data_gb": 3}]
         if cost is None:
             cost = catalog.plan(plan_id).monthly_cost(len(lines), autopay)
@@ -30,6 +33,7 @@ def make_snapshot():
             plan_id=plan_id,
             monthly_plan_cost=cost,
             autopay=autopay,
+            province=province,
             lines=lines,
         )
 
@@ -38,7 +42,7 @@ def make_snapshot():
 
 @pytest.fixture
 def client(tmp_path):
-    settings = Settings(db_path=str(tmp_path / "test.db"))
+    settings = Settings(db_path=str(tmp_path / "test.db"), data_dir=FIXTURE_CATALOG)
     with TestClient(create_app(settings)) as test_client:
         yield test_client
 

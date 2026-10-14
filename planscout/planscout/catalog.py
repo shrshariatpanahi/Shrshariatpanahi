@@ -10,7 +10,7 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from .models import Carrier, DeviceModel, Plan, Promotion
+from .models import PROVINCES, Carrier, DeviceModel, Plan, Promotion
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -32,6 +32,9 @@ class Catalog:
     as_of: date
     is_sample: bool = False
     currency_symbol: str = "$"
+    country: str = ""
+    sales_tax: dict[str, float] = field(default_factory=dict)  # province -> combined % on wireless service
+    free_unlocking: bool = False  # e.g. Canada: carriers must unlock phones for free
     _plans_by_id: dict[str, Plan] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -53,13 +56,23 @@ class Catalog:
             as_of=date.fromisoformat(meta["as_of"]),
             is_sample=bool(meta.get("is_sample", False)),
             currency_symbol=meta.get("currency_symbol", "$"),
+            country=meta.get("country", ""),
+            sales_tax={k: float(v) for k, v in meta.get("sales_tax", {}).items()},
+            free_unlocking=bool(meta.get("free_unlocking", False)),
         )
 
     def _validate(self) -> None:
         errors: list[str] = []
         if len(self._plans_by_id) != len(self.plans):
             errors.append("duplicate plan ids")
+        for carrier in self.carriers.values():
+            if bad := set(carrier.provinces) - set(PROVINCES):
+                errors.append(f"carrier {carrier.id}: unknown provinces {sorted(bad)}")
+        if bad := set(self.sales_tax) - set(PROVINCES):
+            errors.append(f"sales_tax: unknown provinces {sorted(bad)}")
         for plan in self.plans:
+            if bad := set(plan.provinces) - set(PROVINCES):
+                errors.append(f"plan {plan.id}: unknown provinces {sorted(bad)}")
             if plan.carrier_id not in self.carriers:
                 errors.append(f"plan {plan.id}: unknown carrier {plan.carrier_id}")
             if 1 not in plan.price_per_line:
@@ -73,6 +86,9 @@ class Catalog:
                     errors.append(f"promotion {promo.id}: plan {plan_id} is not a {promo.carrier_id} plan")
             if promo.type == "device_discount" and promo.device_model not in self.devices:
                 errors.append(f"promotion {promo.id}: unknown device {promo.device_model}")
+            for carrier_id in promo.excluded_port_from:
+                if carrier_id not in self.carriers:
+                    errors.append(f"promotion {promo.id}: unknown excluded carrier {carrier_id}")
         if errors:
             raise CatalogError("; ".join(errors))
 

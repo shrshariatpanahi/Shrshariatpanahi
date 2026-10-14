@@ -5,7 +5,9 @@
     "type": "postpaid",
     "activation_fee_per_line": 35,
     "offers_device_financing": true,
-    "brand_color": "#1f6feb"
+    "brand_color": "#1f6feb",
+    "parent": "Summit Group",
+    "provinces": []
   },
   {
     "id": "harbor",
@@ -13,7 +15,9 @@
     "type": "postpaid",
     "activation_fee_per_line": 35,
     "offers_device_financing": true,
-    "brand_color": "#d9480f"
+    "brand_color": "#d9480f",
+    "parent": "Harbor Corp",
+    "provinces": []
   },
   {
     "id": "nova",
@@ -21,7 +25,14 @@
     "type": "postpaid",
     "activation_fee_per_line": 25,
     "offers_device_financing": true,
-    "brand_color": "#7048e8"
+    "brand_color": "#7048e8",
+    "parent": "Nova Group",
+    "provinces": [
+      "ON",
+      "BC",
+      "AB",
+      "MB"
+    ]
   },
   {
     "id": "pulse",
@@ -29,6 +40,11 @@
     "type": "prepaid",
     "activation_fee_per_line": 0,
     "offers_device_financing": false,
-    "brand_color": "#2f9e44"
+    "brand_color": "#2f9e44",
+    "parent": "Nova Group",
+    "provinces": [
+      "QC",
+      "ON"
+    ]
   }
 ]

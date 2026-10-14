@@ -65,7 +65,8 @@ class SandboxCarrier:
     def snapshot_for(self, carrier_id: str, persona_id: str) -> AccountSnapshot:
         persona = self.personas[persona_id]
         carrier = self.catalog.carriers[carrier_id]
-        plans = self.catalog.plans_for(carrier_id)
+        plans = [p for p in self.catalog.plans_for(carrier_id) if p.serves(persona.get("province"))]
+        plans = plans or self.catalog.plans_for(carrier_id)
         plan = next((p for p in plans if p.tier == persona["tier"]), plans[0])
         lines = []
         for raw in persona["lines"]:
@@ -73,12 +74,16 @@ class SandboxCarrier:
             if line.device and not carrier.offers_device_financing:
                 line.device = DeviceOnAccount(model=line.device.model, unlocked=True)
             lines.append(line)
+        province = persona.get("province")
+        if not carrier.serves(province):
+            province = carrier.provinces[0]  # e.g. a regional carrier: put the demo customer where it operates
         return AccountSnapshot(
             carrier_id=carrier_id,
             plan_name=plan.name,
             plan_id=plan.id,
             monthly_plan_cost=plan.monthly_cost(len(lines), autopay=persona["autopay"]),
             autopay=persona["autopay"],
+            province=province,
             lines=lines,
             source="sandbox_oauth",
         )
@@ -202,9 +207,10 @@ class SandboxCarrier:
         )
         scope_items = "".join(f"<li>{esc(SCOPES[s])}</li>" for s in scopes)
         body = f"""
-        <div class="banner">SANDBOX: a pretend {esc(carrier.name)} sign-in page for demos.
-        On a real carrier this page lives on the carrier's own website.</div>
-        <h1 style="color:{esc(carrier.brand_color)}">{esc(carrier.name)}</h1>
+        <div class="banner">DEMO ONLY. This is not a real {esc(carrier.name)} page and doesn't connect to
+        {esc(carrier.name)}. With a real integration, customers sign in on the carrier's own website.</div>
+        <h1>Demo carrier sign-in</h1>
+        <p class="muted">Simulating: {esc(carrier.name)}</p>
         <form method="post" action="/sandbox/oauth/authorize">
           <input type="hidden" name="request_id" value="{esc(request_id)}">
           <fieldset><legend>Sign in as a demo customer</legend>{persona_inputs}</fieldset>
@@ -214,10 +220,10 @@ class SandboxCarrier:
           You can revoke access at any time.</p>
           <div class="actions">
             <button name="decision" value="deny" class="secondary">Deny</button>
-            <button name="decision" value="allow" style="background:{esc(carrier.brand_color)}">Allow</button>
+            <button name="decision" value="allow">Allow</button>
           </div>
         </form>"""
-        return _page(f"Sign in to {carrier.name}", body)
+        return _page("Demo carrier sign-in", body)
 
 
 def _page(title: str, body: str) -> str:
@@ -229,7 +235,7 @@ main{{max-width:440px;margin:0 auto;background:#fff;border-radius:12px;padding:2
 .banner{{background:#fff4d6;border:1px solid #f0c36d;border-radius:8px;padding:10px;font-size:14px}}
 fieldset{{border:1px solid #ddd;border-radius:8px;margin:16px 0}} .persona{{display:block;padding:6px 0}}
 h2{{font-size:16px}} .muted{{color:#666;font-size:14px}} .actions{{display:flex;gap:12px;justify-content:flex-end}}
-button{{border:0;border-radius:8px;padding:10px 20px;font-size:15px;color:#fff;cursor:pointer}}
+button{{border:0;border-radius:8px;padding:10px 20px;font-size:15px;color:#fff;background:#1b6ef3;cursor:pointer}}
 button.secondary{{background:#e4e6eb;color:#1c1e21}}
 </style></head><body><main>{body}</main></body></html>"""
 

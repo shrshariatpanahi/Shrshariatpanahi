@@ -3,11 +3,38 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, model_validator
 
 DataSource = Literal["oauth", "sandbox_oauth", "bill_upload", "manual"]
+PROVINCES: dict[str, str] = {
+    "AB": "Alberta",
+    "BC": "British Columbia",
+    "MB": "Manitoba",
+    "NB": "New Brunswick",
+    "NL": "Newfoundland and Labrador",
+    "NS": "Nova Scotia",
+    "NT": "Northwest Territories",
+    "NU": "Nunavut",
+    "ON": "Ontario",
+    "PE": "Prince Edward Island",
+    "QC": "Quebec",
+    "SK": "Saskatchewan",
+    "YT": "Yukon",
+}
+
+
+def _province_code(value: str | None) -> str | None:
+    if value in (None, ""):
+        return None
+    code = str(value).strip().upper()
+    if code not in PROVINCES:
+        raise ValueError(f"Unknown province: {value}")
+    return code
+
+
+Province = Annotated[str | None, BeforeValidator(_province_code)]  # two-letter code, e.g. "QC"
 PlanTier = Literal["premium", "mid", "basic"]
 PromotionType = Literal["switcher_payoff", "switcher_credit", "plan_discount", "device_discount"]
 
@@ -19,9 +46,15 @@ class Carrier(BaseModel):
     id: str
     name: str
     type: Literal["postpaid", "prepaid"]
+    parent: str = ""  # brands with the same parent share a network and often exclude each other from switcher offers
+    provinces: list[str] = []  # where the brand sells service; empty means everywhere
     activation_fee_per_line: float = 0
     offers_device_financing: bool = True
     brand_color: str = "#555555"
+    website: str = ""
+
+    def serves(self, province: str | None) -> bool:
+        return not province or not self.provinces or province in self.provinces
 
 
 class Plan(BaseModel):
@@ -35,6 +68,16 @@ class Plan(BaseModel):
     price_per_line: dict[int, float]  # lines on account -> price per line, before AutoPay
     autopay_discount_per_line: float = 0
     features: list[str] = []
+    coverage: str = ""  # e.g. "Canada-US"
+    after_data: str = ""  # what happens after data_gb, e.g. "slowed to 512 kbps, no overage"
+    provinces: list[str] = []  # only if the plan is regional; empty means everywhere the carrier sells
+    offer_note: str = ""  # limited-time pricing, shown to the customer
+    offer_ends: date | None = None
+    source_urls: list[str] = []
+    verified_on: date | None = None
+
+    def serves(self, province: str | None) -> bool:
+        return not province or not self.provinces or province in self.provinces
 
     def per_line_price(self, lines: int, autopay: bool = True) -> float:
         tier = max(k for k in self.price_per_line if k <= max(lines, 1))
@@ -79,6 +122,10 @@ class Promotion(BaseModel):
     credit_months: int = 0  # 0 means instant discount, otherwise spread as bill credits
     requires_trade_in: bool = False
     trade_in_models: list[str] = []
+    device_retail_price: float | None = None  # this carrier's full price, if it differs from the catalog's
+    # Carriers whose customers can't use this offer when moving their number (usually sister brands).
+    excluded_port_from: list[str] = []
+    source_urls: list[str] = []
 
     def is_active(self, today: date) -> bool:
         return self.valid_until is None or self.valid_until >= today
@@ -86,8 +133,10 @@ class Promotion(BaseModel):
     def applies_to_plan(self, plan_id: str | None) -> bool:
         return not self.eligible_plan_ids or plan_id in self.eligible_plan_ids
 
-    def available_to(self, *, existing_customer: bool) -> bool:
-        return self.existing_customers if existing_customer else self.new_customers
+    def available_to(self, *, existing_customer: bool, current_carrier_id: str | None = None) -> bool:
+        if existing_customer:
+            return self.existing_customers
+        return self.new_customers and current_carrier_id not in self.excluded_port_from
 
 
 # --------------------------------------------------------------------------- customer account
@@ -128,8 +177,8 @@ class DeviceOnAccount(BaseModel):
 
 class LineOnAccount(BaseModel):
     label: str = Field("Line", max_length=40)
-    avg_data_gb: float = Field(0, ge=0, le=2000)
-    hotspot_gb: float = Field(0, ge=0, le=2000)
+    avg_data_gb: float = Field(0, ge=0, le=2000)  # total data per month, including hotspot use (as bills report it)
+    hotspot_gb: float = Field(0, ge=0, le=2000)  # the part of avg_data_gb used for hotspot/tethering
     device: DeviceOnAccount | None = None
 
 
@@ -141,6 +190,7 @@ class AccountSnapshot(BaseModel):
     plan_id: str | None = None
     monthly_plan_cost: float = Field(ge=0, le=10000)  # after discounts, excluding devices and taxes
     autopay: bool = True
+    province: Province = None  # limits recommendations to carriers that serve it
     lines: list[LineOnAccount] = Field(min_length=1, max_length=20)
     source: DataSource = "manual"
     retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -206,6 +256,8 @@ class LineUpgradeStatus(BaseModel):
 class RecommendationReport(BaseModel):
     carrier_id: str
     carrier_name: str
+    province: str | None
+    sales_tax_rate: float | None  # percent, for showing tax-inclusive estimates
     horizon_months: int
     catalog_as_of: date
     catalog_is_sample: bool

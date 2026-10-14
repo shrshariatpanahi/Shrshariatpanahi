@@ -2,7 +2,7 @@
 
 const appEl = document.getElementById("app");
 const navEl = document.getElementById("nav");
-const state = { me: undefined, catalog: null, draft: null, horizon: 24, selected: null, renderSeq: 0 };
+const state = { me: undefined, catalog: null, draft: null, horizon: 24, selected: null, renderSeq: 0, province: loadProvince() };
 
 // Views load data asynchronously; a view whose render has been superseded must not touch the page.
 const stale = (seq) => seq !== state.renderSeq;
@@ -36,6 +36,33 @@ function money(value) {
 }
 
 const carrier = (id) => state.catalog.carriers.find((c) => c.id === id);
+const hasProvinces = () => Object.keys(state.catalog?.provinces || {}).length > 0;
+const provinceName = (code) => state.catalog.provinces?.[code] || code;
+const serves = (item, province) => !province || !item.provinces?.length || item.provinces.includes(province);
+const withTax = (amount, rate) => Math.round(amount * (100 + rate)) / 100;
+
+function loadProvince() {
+  try {
+    return localStorage.getItem("planscout.province") || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveProvince(code) {
+  state.province = code;
+  try {
+    localStorage.setItem("planscout.province", code);
+  } catch {
+    // storage unavailable (private mode); the choice just isn't remembered
+  }
+}
+
+function provinceOptions(selected) {
+  return `<option value="">Choose your province…</option>${Object.entries(state.catalog.provinces)
+    .map(([code, name]) => `<option value="${esc(code)}" ${code === selected ? "selected" : ""}>${esc(name)}</option>`)
+    .join("")}`;
+}
 const dot = (c) => `<span class="carrier-dot" style="background:${esc(c?.brand_color)}"></span>`;
 const list = (items, cls = "") => (items.length ? `<ul class="${cls}">${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>` : "");
 
@@ -163,10 +190,17 @@ function viewAuth(mode) {
 // ---------------------------------------------------------------- dashboard
 
 function sampleBanner() {
-  return state.catalog.is_sample
-    ? `<div class="banner"><strong>Sample data.</strong> The carriers, plans and prices in this demo are fictional.
-       Connect a real offer feed before using PlanScout with customers.</div>`
+  const catalog = state.catalog;
+  if (catalog.is_sample) {
+    return `<div class="banner"><strong>Sample data.</strong> The carriers, plans and prices in this demo are fictional.
+       Connect a real offer feed before using PlanScout with customers.</div>`;
+  }
+  const ageDays = Math.floor((Date.now() - new Date(`${catalog.as_of}T00:00:00`).getTime()) / 86400000);
+  const staleNote = ageDays > 45
+    ? ` <strong>They were last checked ${ageDays} days ago and may be out of date.</strong>`
     : "";
+  return `<div class="banner">Plans and prices were checked on ${esc(catalog.as_of)}.${staleNote}
+     Offers change often, so confirm on the carrier's website before you switch.</div>`;
 }
 
 async function viewDashboard(params, seq) {
@@ -215,9 +249,13 @@ async function viewDashboard(params, seq) {
 
     <div class="stats">
       <div class="card stat"><div class="label">You pay now</div><div class="value">${money(cur.monthly_total)}<span class="small muted">/mo</span></div>
-        <div class="sub">${money(cur.monthly_plan)} plan + ${money(cur.monthly_devices)} phones</div></div>
+        <div class="sub">${money(cur.monthly_plan)} plan + ${money(cur.monthly_devices)} phones${
+          report.sales_tax_rate != null ? ` · ≈ ${money(withTax(cur.monthly_total, report.sales_tax_rate))} with tax` : ""
+        }</div></div>
       <div class="card stat"><div class="label">Best option</div><div class="value">${best ? money(best.monthly_plan_cost) : "–"}<span class="small muted">${best ? "/mo" : ""}</span></div>
-        <div class="sub">${best ? `${esc(best.carrier_name)} ${esc(best.plan_name)}` : "You're already on a good deal"}</div></div>
+        <div class="sub">${best ? `${esc(best.carrier_name)} ${esc(best.plan_name)}${
+          report.sales_tax_rate != null ? ` · ≈ ${money(withTax(best.monthly_plan_cost, report.sales_tax_rate))} with tax` : ""
+        }` : "You're already on a good deal"}</div></div>
       <div class="card stat"><div class="label">You could save</div><div class="value">${best ? money(best.savings) : money(0)}</div>
         <div class="sub">over ${report.horizon_months} months, after switching costs</div></div>
     </div>
@@ -236,7 +274,10 @@ async function viewDashboard(params, seq) {
           .join("")}
       </div>
     </div>
-    <div class="stack">${report.plan_options.slice(0, 6).map((o) => optionCard(o, report.horizon_months)).join("") || '<p class="muted">No other plans cover your usage.</p>'}</div>
+    <div class="stack">${topOptions(report.plan_options).map((o) => optionCard(o, report.horizon_months)).join("") || '<p class="muted">No other plans cover your usage.</p>'}</div>
+    ${report.plan_options.length > topOptions(report.plan_options).length
+      ? `<p class="small muted" style="margin-top:8px">Showing the best ${topOptions(report.plan_options).length} of ${report.plan_options.length} plans that fit, at most 2 per carrier.</p>`
+      : ""}
 
     <h2>Phone deals for you</h2>
     ${
@@ -252,6 +293,14 @@ async function viewDashboard(params, seq) {
 
     <details class="small muted"><summary>How we calculate this</summary>${list(report.assumptions)}
       <p class="small" style="margin-top:8px">Catalog updated ${esc(report.catalog_as_of)}.</p></details>`;
+}
+
+// Cheapest options first, but at most two per carrier so one brand can't crowd out the rest.
+function topOptions(options, limit = 6, perCarrier = 2) {
+  const counts = {};
+  return options
+    .filter((o) => (counts[o.carrier_id] = (counts[o.carrier_id] || 0) + 1) <= perCarrier)
+    .slice(0, limit);
 }
 
 function optionCard(option, horizon) {
@@ -313,6 +362,7 @@ function accountCard(detail) {
         <span>Plan <strong>${esc(account.plan_name || "Unknown")}</strong></span>
         <span>Plan cost <strong>${money(account.monthly_plan_cost)}/mo</strong></span>
         <span>AutoPay <strong>${account.autopay ? "On" : "Off"}</strong></span>
+        ${account.province ? `<span>Province <strong>${esc(provinceName(account.province))}</strong></span>` : ""}
       </div>
       <div class="table-wrap"><table>
         <thead><tr><th>Line</th><th>Avg data</th><th>Hotspot</th><th>Phone</th><th>Payments left</th></tr></thead>
@@ -332,22 +382,37 @@ function accountCard(detail) {
 
 function viewConnect(params) {
   const error = CONNECT_ERRORS[params.get("error")];
+  const province = hasProvinces() ? state.province : "";
+  const shown = state.catalog.carriers.filter((c) => serves(c, province));
+  const hidden = state.catalog.carriers.length - shown.length;
   appEl.innerHTML = `
     ${error ? `<div class="error">${esc(error)}</div>` : ""}
     <h1>Which carrier are you with?</h1>
     <p class="muted">Pick your current carrier. You'll choose how to share your account on the next step.</p>
+    ${
+      hasProvinces()
+        ? `<div class="field-row" style="max-width:360px"><div><label for="province-filter">Where do you live?</label>
+            <select id="province-filter">${provinceOptions(province)}</select></div></div>`
+        : ""
+    }
     <div class="grid">
-      ${state.catalog.carriers
+      ${shown
         .map(
           (c) => `
         <a class="card carrier-card" href="#/connect/${esc(c.id)}" style="border-top-color:${esc(c.brand_color)}">
           <h3>${esc(c.name)}</h3>
-          <p class="small muted" style="margin:0">${c.type === "prepaid" ? "Prepaid" : "Postpaid"} ·
-            ${c.oauth ? "Sign in or upload a bill" : "Upload a bill or enter details"}</p>
+          <p class="small muted" style="margin:0">${c.type === "prepaid" ? "Prepaid" : "Postpaid"}${
+            c.parent && c.parent !== c.name ? ` · owned by ${esc(c.parent)}` : ""
+          }</p>
         </a>`,
         )
         .join("")}
-    </div>`;
+    </div>
+    ${hidden ? `<p class="small muted" style="margin-top:12px">${hidden} other carrier${hidden > 1 ? "s don't" : " doesn't"} sell service in ${esc(provinceName(province))}.</p>` : ""}`;
+  document.getElementById("province-filter")?.addEventListener("change", (event) => {
+    saveProvince(event.target.value);
+    viewConnect(new URLSearchParams());
+  });
 }
 
 function viewConnectCarrier(carrierId) {
@@ -362,12 +427,20 @@ function viewConnectCarrier(carrierId) {
       ${
         c.oauth
           ? `<div class="card">
-          <h3>Sign in with ${esc(c.name)} <span class="badge good">Recommended</span>
-            ${c.oauth_is_sandbox ? '<span class="badge">Sandbox demo</span>' : ""}</h3>
+          ${
+            c.oauth_is_sandbox
+              ? `<h3>Try the demo sign-in <span class="badge">Demo</span></h3>
+          <p class="muted small">Signing in with ${esc(c.name)} for real needs a data-sharing agreement with ${esc(c.name)}.
+            This demo shows how it would work using sample customers. No real ${esc(c.name)} account is accessed.
+            With a real integration we'd ask for <strong>read-only</strong> access to:</p>`
+              : `<h3>Sign in with ${esc(c.name)} <span class="badge good">Recommended</span></h3>
           <p class="muted small">You'll sign in on ${esc(c.name)}'s own page. PlanScout never sees your password, and you can revoke access any time.
-            We ask for <strong>read-only</strong> access to:</p>
+            We ask for <strong>read-only</strong> access to:</p>`
+          }
           ${list(scopes, "small")}
-          <div class="actions"><button type="button" class="btn" data-action="oauth" data-carrier="${esc(c.id)}">Continue to ${esc(c.name)}</button></div>
+          <div class="actions"><button type="button" class="btn" data-action="oauth" data-carrier="${esc(c.id)}">${
+            c.oauth_is_sandbox ? "Start the demo" : `Continue to ${esc(c.name)}`
+          }</button></div>
         </div>`
           : ""
       }
@@ -421,8 +494,14 @@ function viewAccountForm({ carrierId, account, connectionId }) {
   const fromBill = !account && state.draft?.draft?.carrier_id === carrierId;
   const data = account || (fromBill && state.draft.draft) || { plan_name: "", plan_id: null, monthly_plan_cost: "", autopay: true, lines: [EMPTY_LINE()] };
   const source = account ? account.source : fromBill ? "bill_upload" : "manual";
-  const plans = state.catalog.plans.filter((p) => p.carrier_id === carrierId);
+  const carrierPlans = state.catalog.plans.filter((p) => p.carrier_id === carrierId);
+  const initialProvince = data.province || (hasProvinces() && serves(c, state.province) ? state.province : "");
+  const plansFor = (province) => carrierPlans.filter((p) => serves(p, province) || p.id === data.plan_id);
+  const plans = plansFor(initialProvince);
   const knownPlan = plans.some((p) => p.id === data.plan_id);
+  const planOptions = (list) =>
+    `${list.map((p) => `<option value="${esc(p.id)}" ${p.id === data.plan_id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+     <option value="" ${list.some((p) => p.id === data.plan_id) ? "" : "selected"}>Other / not listed</option>`;
   let lines = data.lines.map((l) => ({ ...l, device: l.device ? { ...l.device } : null }));
 
   appEl.innerHTML = `
@@ -437,12 +516,15 @@ function viewAccountForm({ carrierId, account, connectionId }) {
     <div id="form-error"></div>
     <form id="account-form" class="card" novalidate>
       <div class="field-row">
+        ${
+          hasProvinces()
+            ? `<div><label for="province">Province</label>
+                <select id="province" name="province" required>${provinceOptions(initialProvince)}</select></div>`
+            : ""
+        }
         <div>
           <label for="plan_choice">Plan</label>
-          <select id="plan_choice" name="plan_choice">
-            ${plans.map((p) => `<option value="${esc(p.id)}" ${p.id === data.plan_id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
-            <option value="" ${knownPlan ? "" : "selected"}>Other / not listed</option>
-          </select>
+          <select id="plan_choice" name="plan_choice">${planOptions(plans)}</select>
         </div>
         <div id="plan-name-wrap" ${knownPlan ? "hidden" : ""}>
           <label for="plan_name">Plan name</label>
@@ -477,7 +559,7 @@ function viewAccountForm({ carrierId, account, connectionId }) {
             <input type="text" name="label" maxlength="40" value="${esc(line.label)}"></div>
           <div><label>Average data per month (GB)</label>
             <input type="number" name="avg_data_gb" min="0" step="0.1" value="${esc(line.avg_data_gb)}"></div>
-          <div><label>Hotspot per month (GB)</label>
+          <div><label>Hotspot per month (GB) <span class="hint">part of the data above</span></label>
             <input type="number" name="hotspot_gb" min="0" step="0.1" value="${esc(line.hotspot_gb)}"></div>
           <div><label>Phone model</label>
             <input type="text" name="model" maxlength="80" value="${esc(d.model)}"></div>
@@ -539,20 +621,32 @@ function viewAccountForm({ carrierId, account, connectionId }) {
   form.plan_choice.addEventListener("change", () => {
     document.getElementById("plan-name-wrap").hidden = !!form.plan_choice.value;
   });
+  form.province?.addEventListener("change", () => {
+    form.plan_choice.innerHTML = planOptions(plansFor(form.province.value));
+    document.getElementById("plan-name-wrap").hidden = !!form.plan_choice.value;
+  });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const planId = form.plan_choice.value || null;
-    const planName = planId ? plans.find((p) => p.id === planId).name : form.plan_name.value.trim();
+    const planName = planId ? carrierPlans.find((p) => p.id === planId).name : form.plan_name.value.trim();
+    const province = form.province?.value || null;
     const body = {
       plan_id: planId,
       plan_name: planName,
       monthly_plan_cost: Number(form.monthly_plan_cost.value),
       autopay: form.autopay.checked,
+      province,
       lines: readLines(),
       source,
     };
     const errorEl = document.getElementById("form-error");
+    if (hasProvinces() && !province) {
+      errorEl.innerHTML = '<div class="error">Choose your province so we only suggest carriers that serve it.</div>';
+      form.province.focus();
+      return;
+    }
+    if (province) saveProvince(province);
     if (!form.monthly_plan_cost.value || body.monthly_plan_cost <= 0) {
       errorEl.innerHTML = '<div class="error">Enter what you pay for your plan each month.</div>';
       form.monthly_plan_cost.focus();

@@ -25,7 +25,7 @@ from .connectors.base import DEFAULT_SCOPES, SCOPES, CarrierProvider, ProviderEr
 from .connectors.bill_parser import MAX_BYTES, BillParseError, extract_text, parse_bill_text
 from .connectors.oauth2 import OAuth2Provider
 from .connectors.sandbox import CALLBACK_PATH, SandboxCarrier, SandboxProvider
-from .models import AccountSnapshot, LineOnAccount, RecommendationReport
+from .models import PROVINCES, AccountSnapshot, LineOnAccount, Province, RecommendationReport
 from .recommender import recommend
 from .security import MIN_PASSWORD_LENGTH, TokenCipher, hash_password, new_pkce_pair, verify_password
 from .storage import Database
@@ -49,6 +49,7 @@ class AccountInput(BaseModel):
     plan_id: str | None = None
     monthly_plan_cost: float = Field(ge=0, le=10000)
     autopay: bool = True
+    province: Province = None
     lines: list[LineOnAccount] = Field(min_length=1, max_length=20)
     source: Literal["manual", "bill_upload"] = "manual"
 
@@ -201,20 +202,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {
             "as_of": catalog.as_of,
             "is_sample": catalog.is_sample,
+            "country": catalog.country,
             "currency_symbol": catalog.currency_symbol,
             "scopes": SCOPES,
+            "provinces": PROVINCES if catalog.country == "CA" else {},
+            "sales_tax": catalog.sales_tax,
             "carriers": [
                 {
                     "id": c.id,
                     "name": c.name,
                     "type": c.type,
+                    "parent": c.parent,
+                    "provinces": c.provinces,
                     "brand_color": c.brand_color,
                     "oauth": c.id in providers,
                     "oauth_is_sandbox": isinstance(providers.get(c.id), SandboxProvider),
                 }
                 for c in catalog.carriers.values()
             ],
-            "plans": [{"id": p.id, "carrier_id": p.carrier_id, "name": p.name} for p in catalog.plans],
+            "plans": [
+                {"id": p.id, "carrier_id": p.carrier_id, "name": p.name, "provinces": p.provinces} for p in catalog.plans
+            ],
         }
 
     # ------------------------------------------------------------------ connect: sign in with carrier

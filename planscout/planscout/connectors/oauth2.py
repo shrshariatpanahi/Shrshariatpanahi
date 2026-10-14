@@ -32,7 +32,10 @@ class OAuth2Config:
 
 
 def load_oauth_configs(env) -> dict[str, OAuth2Config]:
-    """Read PLANSCOUT_OAUTH_<CARRIER>_<FIELD> variables into one config per carrier id."""
+    """Read PLANSCOUT_OAUTH_<CARRIER>_<FIELD> variables into one config per carrier id.
+
+    Carrier ids use dashes, env vars use underscores: PLANSCOUT_OAUTH_VIRGIN_PLUS_* configures "virgin-plus".
+    """
     carriers = {
         key[len(ENV_PREFIX) : -len("_CLIENT_ID")]
         for key in env
@@ -44,7 +47,7 @@ def load_oauth_configs(env) -> dict[str, OAuth2Config]:
         missing = [f for f in _REQUIRED if not env.get(prefix + f)]
         if missing:
             raise ValueError(f"OAuth config for {carrier.lower()} is missing: {', '.join(prefix + f for f in missing)}")
-        configs[carrier.lower()] = OAuth2Config(
+        configs[carrier.lower().replace("_", "-")] = OAuth2Config(
             client_id=env[prefix + "CLIENT_ID"],
             client_secret=env[prefix + "CLIENT_SECRET"],
             authorize_url=env[prefix + "AUTHORIZE_URL"],
