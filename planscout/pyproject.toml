@@ -1,0 +1,9 @@
+[project]
+name = "planscout"
+version = "0.1.0"
+description = "Compare a customer's phone plan against every carrier's plans and promotions, with consent."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
