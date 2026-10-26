@@ -1,0 +1,91 @@
+{
+  "name": "Growing, profitable, not priced for perfection",
+  "rules": [
+    {
+      "metric": "revenue_growth_yoy",
+      "op": ">=",
+      "value": 10
+    },
+    {
+      "metric": "operating_margin",
+      "op": ">=",
+      "value": 25
+    },
+    {
+      "metric": "eps_ttm",
+      "op": ">",
+      "value": 0
+    },
+    {
+      "metric": "pe",
+      "op": "<=",
+      "value": 35
+    }
+  ],
+  "rank": [
+    {
+      "metric": "revenue_growth_yoy",
+      "order": "desc",
+      "weight": 2
+    },
+    {
+      "metric": "pe",
+      "order": "asc",
+      "weight": 1
+    },
+    {
+      "metric": "operating_margin",
+      "order": "desc",
+      "weight": 1
+    }
+  ],
+  "prices_as_of": "2026-10-26T10:08:20Z",
+  "passed": [
+    {
+      "ticker": "GOOGL",
+      "name": "Alphabet Inc.",
+      "score": 0.75,
+      "why": [
+        "revenue_growth_yoy 24.2 >= 10",
+        "operating_margin 34 >= 25",
+        "eps_ttm 19.91 > 0",
+        "pe 16.1 <= 35"
+      ],
+      "skipped": []
+    },
+    {
+      "ticker": "KO",
+      "name": "COCA COLA CO",
+      "score": 0.25,
+      "why": [
+        "revenue_growth_yoy 12.1 >= 10",
+        "operating_margin 35 >= 25",
+        "eps_ttm 3.18 > 0",
+        "pe 29.2 <= 35"
+      ],
+      "skipped": []
+    }
+  ],
+  "failed": [
+    {
+      "ticker": "AAPL",
+      "why": [
+        "pe 39.9, needs <= 35"
+      ]
+    },
+    {
+      "ticker": "BAC",
+      "why": [
+        "operating_margin is missing"
+      ]
+    },
+    {
+      "ticker": "AXP",
+      "why": [
+        "revenue_growth_yoy 7.8, needs >= 10",
+        "operating_margin is missing"
+      ]
+    }
+  ],
+  "note": "A filter on reported numbers, not a recommendation."
+}

@@ -1,0 +1,39 @@
+{
+  "as_of": "2026-10-26T10:08:20Z",
+  "source": "yahoo",
+  "note": "Delayed quotes for alerts and sizing checks. Your broker's price is the one that fills.",
+  "prices": {
+    "AAPL": 347.725,
+    "AXP": 313.22,
+    "GOOGL": 320.21,
+    "KO": 92.71,
+    "BAC": 50.56
+  },
+  "detail": {
+    "AAPL": {
+      "prev_close": 348.22,
+      "time": "2026-10-23T20:00:01Z",
+      "source": "yahoo"
+    },
+    "AXP": {
+      "prev_close": 325.17,
+      "time": "2026-10-23T20:03:32Z",
+      "source": "yahoo"
+    },
+    "GOOGL": {
+      "prev_close": 324.22,
+      "time": "2026-10-23T20:00:01Z",
+      "source": "yahoo"
+    },
+    "KO": {
+      "prev_close": 95.34,
+      "time": "2026-10-23T20:00:02Z",
+      "source": "yahoo"
+    },
+    "BAC": {
+      "prev_close": 51.08,
+      "time": "2026-10-23T20:00:03Z",
+      "source": "yahoo"
+    }
+  }
+}
